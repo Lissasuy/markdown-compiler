@@ -2,6 +2,22 @@
 Each of the functions in this file takes a single line of input and transforms the line in some way.
 '''
 
+
+def _replace_pairs(line, marker, open_tag, close_tag):
+    result = ''
+    i = 0
+    while i < len(line):
+        if line[i:i + len(marker)] == marker:
+            end = line.find(marker, i + len(marker) + 1)
+            if end != -1:
+                result += open_tag + line[i + len(marker):end] + close_tag
+                i = end + len(marker)
+                continue
+        result += line[i]
+        i += 1
+    return result
+
+
 def compile_headers(line):
     '''
     Convert markdown headers into <h1>,<h2>,etc tags.
@@ -26,6 +42,9 @@ def compile_headers(line):
     >>> compile_headers('      # this is not a header')
     '      # this is not a header'
     '''
+    for n in range(6, 0, -1):
+        if line[:n + 1] == '#' * n + ' ':
+            return '<h' + str(n) + '>' + line[n:] + '</h' + str(n) + '>'
     return line
 
 
@@ -50,7 +69,7 @@ def compile_italic_star(line):
     >>> compile_italic_star('*')
     '*'
     '''
-    return line
+    return _replace_pairs(line, '*', '<i>', '</i>')
 
 
 def compile_italic_underscore(line):
@@ -71,7 +90,7 @@ def compile_italic_underscore(line):
     >>> compile_italic_underscore('_')
     '_'
     '''
-    return line
+    return _replace_pairs(line, '_', '<i>', '</i>')
 
 
 def compile_strikethrough(line):
@@ -94,7 +113,7 @@ def compile_strikethrough(line):
     >>> compile_strikethrough('~~')
     '~~'
     '''
-    return line
+    return _replace_pairs(line, '~~', '<ins>', '</ins>')
 
 
 def compile_bold_stars(line):
@@ -115,7 +134,7 @@ def compile_bold_stars(line):
     >>> compile_bold_stars('**')
     '**'
     '''
-    return line
+    return _replace_pairs(line, '**', '<b>', '</b>')
 
 
 def compile_bold_underscore(line):
@@ -136,7 +155,7 @@ def compile_bold_underscore(line):
     >>> compile_bold_underscore('__')
     '__'
     '''
-    return line
+    return _replace_pairs(line, '__', '<b>', '</b>')
 
 
 def compile_code_inline(line):
@@ -166,7 +185,42 @@ def compile_code_inline(line):
     >>> compile_code_inline('```python3')
     '```python3'
     '''
-    return line
+    result = ''
+    i = 0
+    while i < len(line):
+        if line[i] == '`' and line[i + 1:i + 2] != '`':
+            end = line.find('`', i + 2)
+            if end != -1:
+                code = line[i + 1:end]
+                code = code.replace('<', '&lt;').replace('>', '&gt;')
+                result += '<code>' + code + '</code>'
+                i = end + 1
+                continue
+        result += line[i]
+        i += 1
+    return result
+
+
+def _replace_bracket_links(line, prefix, is_image):
+    result = ''
+    i = 0
+    while i < len(line):
+        if line[i:i + len(prefix)] == prefix:
+            close = line.find(']', i + len(prefix))
+            if close != -1 and line[close + 1:close + 2] == '(':
+                end = line.find(')', close + 2)
+                if end != -1:
+                    text = line[i + len(prefix):close]
+                    url = line[close + 2:end]
+                    if is_image:
+                        result += '<img src="' + url + '" alt="' + text + '" />'
+                    else:
+                        result += '<a href="' + url + '">' + text + '</a>'
+                    i = end + 1
+                    continue
+        result += line[i]
+        i += 1
+    return result
 
 
 def compile_links(line):
@@ -186,7 +240,7 @@ def compile_links(line):
     >>> compile_links('this is wrong: [course webpage](https://github.com/mikeizbicki/cmc-csci040')
     'this is wrong: [course webpage](https://github.com/mikeizbicki/cmc-csci040'
     '''
-    return line
+    return _replace_bracket_links(line, '[', False)
 
 
 def compile_images(line):
@@ -205,4 +259,4 @@ def compile_images(line):
     >>> compile_images('This is an image of Mike Izbicki: ![Mike Izbicki](https://avatars1.githubusercontent.com/u/1052630?v=2&s=460)')
     'This is an image of Mike Izbicki: <img src="https://avatars1.githubusercontent.com/u/1052630?v=2&s=460" alt="Mike Izbicki" />'
     '''
-    return line
+    return _replace_bracket_links(line, '![', True)
